@@ -2,7 +2,7 @@
 
 import Prelude hiding (lookup)
 import Control.Monad.Fix
-import Data.List (init, transpose)
+import Data.List (transpose)
 import Data.Map.Strict (Map(..), fromList, lookup)
 import Data.Maybe (fromMaybe)
 import Gloss.FRP.Reactive.Banana (playReactive, InputEvent)
@@ -12,9 +12,6 @@ import Reactive.Banana.Combinators
 import qualified Reactive.Banana.Combinators as FRP
 import Reactive.Banana.Frameworks
 import qualified System.Random.MWC as Random
-
--- ゲーム上の位置を表す
-type Position = (Int, Int)
 
 -- Board
 type Cells = [[Int]]
@@ -49,11 +46,6 @@ type GameSceneHandler =  ImageResourceManager
 
 windowWidth = 640 :: Int
 windowHeight = 960 :: Int
-
-blockSize = 100
-
-areaWidth = windowWidth `div` (round blockSize * 2) - 1
-areaHeight = windowHeight `div` (round blockSize * 2) - 1
 
 makeColor8 r g b a = makeColor (r / 255.0) (g / 255.0) (b / 255.0) (a / 255.0)
 bgColor = makeColor8 0xbb 0xad 0x9f 0xff
@@ -107,22 +99,13 @@ merge x y | x > y             = merge y x
           | x + 1 == y        = Just $ y + 1
           | otherwise         = Nothing
 
--- ゲーム上の一マスを描画する関数
-tile :: Color -> Position -> Picture
-tile c (x, y) =
-  let (x', y') = (fromIntegral x * blockSize, fromIntegral y * blockSize)
-   in translate x' y' $ color c $ rectangleSolid blockSize blockSize
-
 -- Draw board
 drawBoard :: ImageResourceManager -> Board -> Picture
 drawBoard imgResMgr board = pictures $ concat $ zipWith drawRow (_cells board) [0..]
   where drawRow row iy = zipWith drawCell row [0..]
           where drawCell c ix = translate x' y' $ color tileColor $ getImg imgResMgr $ show c
                   where (x', y') = (fromIntegral ix * blockSize - blockSize * 1.5, blockSize * 1.5 - fromIntegral iy * blockSize)
-                        boxSize = 140
-                        margin = 8
-                        blockSize = 120  --boxSize + margin * 2
-                        size = 4
+                        blockSize = 120
 
 -- ゲームの状態を描画する関数
 drawGameState :: ImageResourceManager -> GameState -> Picture
