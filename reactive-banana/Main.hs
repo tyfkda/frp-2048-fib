@@ -22,12 +22,12 @@ data Board = Board
 -- Board actions
 data BoardAction = MoveUp | MoveDown | MoveLeft | MoveRight deriving Show
 
--- ゲームの状態は蛇とターゲットの組で表される
+-- Game state
 data GameState = GameState
   { _board  :: Board
   }
 
--- シーンを表す
+-- Represent scene
 data GameScene = MainGame deriving Show
 
 -- Image resource manager
@@ -36,13 +36,13 @@ type ImageResourceManager = Map String Picture
 getImg :: ImageResourceManager -> String -> Picture
 getImg imgResMgr name = fromMaybe blank $ lookup name imgResMgr
 
--- シーンの実装の型
+-- Type to implement scene
 type GameSceneHandler =  ImageResourceManager
-                      -> Random.GenIO                -- 乱数のシード
-                      -> Handler GameScene           -- シーンを遷移するための関数（一回しか呼んではならない。乱用禁止！）
-                      -> FRP.Event Float             -- 1フレームごとに発火するイベント
-                      -> FRP.Event InputEvent        -- 外部入力ごとに発火するイベント
-                      -> MomentIO (Behavior Picture) -- 実行結果として描画する画面
+                      -> Random.GenIO                -- Random seed
+                      -> Handler GameScene           -- Scene transition function (call just once, do not abuse!)
+                      -> FRP.Event Float             -- Event which is triggered every frame
+                      -> FRP.Event InputEvent        -- Event which is triggered by input
+                      -> MomentIO (Behavior Picture) -- Result picture of execution
 
 windowWidth = 640 :: Int
 windowHeight = 960 :: Int
@@ -107,24 +107,24 @@ drawBoard imgResMgr board = pictures $ concat $ zipWith drawRow (_cells board) [
                   where (x', y') = (fromIntegral ix * blockSize - blockSize * 1.5, blockSize * 1.5 - fromIntegral iy * blockSize)
                         blockSize = 120
 
--- ゲームの状態を描画する関数
+-- Draw function for game state
 drawGameState :: ImageResourceManager -> GameState -> Picture
 drawGameState imgResMgr gs = pictures [drawBoard imgResMgr (_board gs)]
 
--- ゲームのシーンからその処理関数を取得する
+-- Return handler for scene
 getHandler :: GameScene -> GameSceneHandler
 getHandler MainGame   = bMainGame
 
--- ゲーム画面
+-- Game screen
 bMainGame :: GameSceneHandler
 bMainGame imgResMgr gen sceneHandler eTick eEvent = do
-  -- ゲームを実行する間隔を制御するための Event
+  -- Event for game interval
   let eGameStep = eTick
 
   -- Keyboard event behavior
   let eActionEvent = filterJust $ fmap event2Action eEvent
 
-  -- 蛇とターゲットのBehavior
+  -- Behavior
   (bBoard) <- mdo
     bBoard <- accumB initialBoard (updateBoard <$> eActionEvent)
 
