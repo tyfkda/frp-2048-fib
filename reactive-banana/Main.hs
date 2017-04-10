@@ -67,7 +67,7 @@ replaceBoard board pos x = Board $ replace2 (_cells board) pos x
 
 -- Initial board
 initialBoard :: Board
-initialBoard = replaceBoard (replaceBoard emptyBoard (0, 0) 1) (1, 2) 2
+initialBoard = replaceBoard (replaceBoard (replaceBoard emptyBoard (0, 0) 1) (1, 2) 2) (0, 3) 1
   where emptyBoard = Board (replicate 4 $ replicate 4 0)
 
 -- Convert event to (maybe) action
@@ -88,10 +88,23 @@ updateBoard MoveUp = updateBoardCells updateBoardUp
 updateBoard MoveDown = updateBoardCells updateBoardDown
 
 updateBoardLeft, updateBoardRight, updateBoardUp, updateBoardDown :: Cells -> Cells
-updateBoardLeft = map (\row -> take 4 $ filter (> 0) row ++ repeat 0)
-updateBoardRight = map (\row -> reverse $ take 4 $ (reverse $ filter (> 0) row) ++ repeat 0)
+updateBoardLeft = map (\row -> take 4 $ mergePanels (filter (> 0) row) ++ repeat 0)
+updateBoardRight = map reverse . updateBoardLeft . map reverse
 updateBoardUp = transpose . updateBoardLeft . transpose
 updateBoardDown = transpose . updateBoardRight . transpose
+
+mergePanels :: [Int] -> [Int]
+mergePanels [] = []
+mergePanels [x] = [x]
+mergePanels (x:y:zs) = case merge x y of
+                         Just m   -> m : mergePanels zs
+                         Nothing  -> x : mergePanels (y: zs)
+
+merge :: Int -> Int -> Maybe Int
+merge x y | x > y             = merge y x
+          | x == 1 && y == 1  = Just 2
+          | x + 1 == y        = Just $ y + 1
+          | otherwise         = Nothing
 
 -- ゲーム上の一マスを描画する関数
 tile :: Color -> Position -> Picture
@@ -143,7 +156,7 @@ imageResources = [ "0"
                  , "1"
                  , "2"
                  , "3"
-                 , "5"
+                 , "4"
                  ]
 
 loadImageResources :: [String] -> IO ImageResourceManager
