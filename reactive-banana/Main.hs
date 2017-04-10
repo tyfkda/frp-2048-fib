@@ -2,7 +2,7 @@
 
 import Prelude hiding (lookup)
 import Control.Monad.Fix
-import Data.List (init)
+import Data.List (init, transpose)
 import Data.Map.Strict (Map(..), fromList, lookup)
 import Gloss.FRP.Reactive.Banana (playReactive, InputEvent)
 import Graphics.Gloss
@@ -77,11 +77,20 @@ event2Action (EventKey (SpecialKey KeyLeft)  Down _ _) = Just MoveLeft
 event2Action (EventKey (SpecialKey KeyRight) Down _ _) = Just MoveRight
 event2Action _                                         = Nothing
 
+updateBoardCells :: ([[Int]] -> [[Int]]) -> Board -> Board
+updateBoardCells f board = Board $ f (_cells board)
+
 updateBoard :: BoardAction -> Board -> Board
-updateBoard MoveUp board = Board $ tail (_cells board) ++ [[0,0,0,0]]
-updateBoard MoveDown board = Board $ [0,0,0,0] : init (_cells board)
-updateBoard MoveLeft board = Board $ map (\row -> tail row ++ [0]) (_cells board)
-updateBoard MoveRight board = Board $ map (\row -> 0 : init row) (_cells board)
+updateBoard MoveLeft = updateBoardCells updateBoardLeft
+updateBoard MoveRight = updateBoardCells updateBoardRight
+updateBoard MoveUp = updateBoardCells updateBoardUp
+updateBoard MoveDown = updateBoardCells updateBoardDown
+
+updateBoardLeft, updateBoardRight, updateBoardUp, updateBoardDown :: [[Int]] -> [[Int]]
+updateBoardLeft = map (\row -> take 4 $ filter (> 0) row ++ repeat 0)
+updateBoardRight = map (\row -> reverse $ take 4 $ (reverse $ filter (> 0) row) ++ repeat 0)
+updateBoardUp = transpose . updateBoardLeft . transpose
+updateBoardDown = transpose . updateBoardRight . transpose
 
 -- ゲーム上の一マスを描画する関数
 tile :: Color -> Position -> Picture
