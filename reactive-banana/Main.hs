@@ -13,17 +13,14 @@ import qualified System.Random.MWC as Random
 -- ゲーム上の位置を表す
 type Position = (Int, Int)
 
--- 蛇は自身の長さと全ての節のゲーム上の位置を持つ
-data Snake = Snake
-  { _body   :: Position
+-- Board
+data Board = Board
+  { _cells   :: [[Int]]
   }
-
--- 蛇が取れる行動
-data SnakeAction = MoveUp | MoveDown | MoveLeft | MoveRight deriving Show
 
 -- ゲームの状態は蛇とターゲットの組で表される
 data GameState = GameState
-  { _snake  :: Snake
+  { _board  :: Board
   }
 
 -- シーンを表す
@@ -37,16 +34,16 @@ type GameSceneHandler =  Random.GenIO                -- 乱数のシード
                       -> MomentIO (Behavior Picture) -- 実行結果として描画する画面
 
 windowWidth = 640 :: Int
-windowHeight = 480 :: Int
+windowHeight = 960 :: Int
 
-blockSize = 20
+blockSize = 100
 
 areaWidth = windowWidth `div` (round blockSize * 2) - 1
 areaHeight = windowHeight `div` (round blockSize * 2) - 1
 
--- 蛇の初期状態
-initialSnake :: Snake
-initialSnake = Snake (-10, -10)
+-- Initial board
+initialBoard :: Board
+initialBoard = Board (replicate 4 $ replicate 4 0)
 
 -- ゲーム上の一マスを描画する関数
 tile :: Color -> Position -> Picture
@@ -54,13 +51,20 @@ tile c (x, y) =
   let (x', y') = (fromIntegral x * blockSize, fromIntegral y * blockSize)
    in translate x' y' $ color c $ rectangleSolid blockSize blockSize
 
--- 蛇を描画する関数
-drawSnake :: Snake -> Picture
-drawSnake snake = tile white $ _body snake
+-- Draw board
+drawBoard :: Board -> Picture
+drawBoard board = pictures $ concat $ zipWith drawRow (_cells board) [0..]
+  where drawRow row iy = zipWith drawCell row [0..]
+          where drawCell c ix = translate x' y' $ color white $ rectangleSolid boxSize boxSize
+                  where (x', y') = (fromIntegral ix * blockSize - blockSize * 1.5, fromIntegral iy * blockSize - blockSize * 1.5)
+                        boxSize = 140
+                        margin = 8
+                        blockSize = boxSize + margin * 2
+                        size = 4
 
 -- ゲームの状態を描画する関数
 drawGameState :: GameState -> Picture
-drawGameState gs = pictures [drawSnake (_snake gs)]
+drawGameState gs = pictures [drawBoard (_board gs)]
 
 -- ゲームのシーンからその処理関数を取得する
 getHandler :: GameScene -> GameSceneHandler
@@ -73,12 +77,12 @@ bMainGame gen sceneHandler eTick eEvent = do
   let eGameStep = eTick
 
   -- 蛇とターゲットのBehavior
-  (bSnake) <- mdo
-    bSnake <- accumB initialSnake (pure id <@ eGameStep)
+  (bBoard) <- mdo
+    bBoard <- accumB initialBoard (pure id <@ eGameStep)
 
-    pure (bSnake)
+    pure (bBoard)
 
-  pure $ fmap drawGameState (GameState <$> bSnake)
+  pure $ fmap drawGameState (GameState <$> bBoard)
 
 main :: IO ()
 main = do
