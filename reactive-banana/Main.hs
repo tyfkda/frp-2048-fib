@@ -1,7 +1,8 @@
 {-# LANGUAGE RecursiveDo #-}
 
+import Prelude hiding (lookup)
 import Control.Monad.Fix
-import Data.List
+import Data.Map.Strict (Map(..), fromList, lookup)
 import Gloss.FRP.Reactive.Banana (playReactive, InputEvent)
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game (Event(..), Key(..), SpecialKey(..), KeyState(..))
@@ -26,8 +27,15 @@ data GameState = GameState
 -- シーンを表す
 data GameScene = MainGame deriving Show
 
+-- Image resource manager
+type ImageResourceManager = Map String Picture
+
+getImg :: ImageResourceManager -> String -> Maybe Picture
+getImg = flip lookup
+
 -- シーンの実装の型
-type GameSceneHandler =  Random.GenIO                -- 乱数のシード
+type GameSceneHandler =  ImageResourceManager
+                      -> Random.GenIO                -- 乱数のシード
                       -> Handler GameScene           -- シーンを遷移するための関数（一回しか呼んではならない。乱用禁止！）
                       -> FRP.Event Float             -- 1フレームごとに発火するイベント
                       -> FRP.Event InputEvent        -- 外部入力ごとに発火するイベント
@@ -45,9 +53,17 @@ makeColor8 r g b a = makeColor (r / 255.0) (g / 255.0) (b / 255.0) (a / 255.0)
 bgColor = makeColor8 0xbb 0xad 0x9f 0xff
 tileColor = makeColor8 0xee 0xe4 0xd9 0xff
 
+replace ls i x = take i ls ++ [x] ++ drop (i + 1) ls
+replace2 lss (i, j) x = replace lss i $ replace (lss !! i) j x
+
+-- Replace one cell on a board
+replaceBoard :: Board -> (Int, Int) -> Int -> Board
+replaceBoard board pos x = Board $ replace2 (_cells board) pos x
+
 -- Initial board
 initialBoard :: Board
-initialBoard = Board (replicate 4 $ replicate 4 0)
+initialBoard = replaceBoard (replaceBoard emptyBoard (0, 0) 1) (1, 2) 2
+  where emptyBoard = Board (replicate 4 $ replicate 4 0)
 
 -- ゲーム上の一マスを描画する関数
 tile :: Color -> Position -> Picture
@@ -56,19 +72,23 @@ tile c (x, y) =
    in translate x' y' $ color c $ rectangleSolid blockSize blockSize
 
 -- Draw board
-drawBoard :: Board -> Picture
-drawBoard board = pictures $ concat $ zipWith drawRow (_cells board) [0..]
+drawBoard :: ImageResourceManager -> Board -> Picture
+drawBoard imgResMgr board = pictures $ concat $ zipWith drawRow (_cells board) [0..]
   where drawRow row iy = zipWith drawCell row [0..]
-          where drawCell c ix = translate x' y' $ color tileColor $ rectangleSolid boxSize boxSize
-                  where (x', y') = (fromIntegral ix * blockSize - blockSize * 1.5, fromIntegral iy * blockSize - blockSize * 1.5)
+          where drawCell c ix = translate x' y' $ color tileColor $ ((getImg imgResMgr $ show c) `orJust` blank)
+                  where (x', y') = (fromIntegral ix * blockSize - blockSize * 1.5, blockSize * 1.5 - fromIntegral iy * blockSize)
                         boxSize = 140
                         margin = 8
-                        blockSize = boxSize + margin * 2
+                        blockSize = 120  --boxSize + margin * 2
                         size = 4
 
+orJust :: Maybe a -> a -> a
+orJust (Just x) _ = x
+orJust Nothing  y = y
+
 -- ゲームの状態を描画する関数
-drawGameState :: GameState -> Picture
-drawGameState gs = pictures [drawBoard (_board gs)]
+drawGameState :: ImageResourceManager -> GameState -> Picture
+drawGameState imgResMgr gs = pictures [drawBoard imgResMgr (_board gs)]
 
 -- ゲームのシーンからその処理関数を取得する
 getHandler :: GameScene -> GameSceneHandler
@@ -76,7 +96,7 @@ getHandler MainGame   = bMainGame
 
 -- ゲーム画面
 bMainGame :: GameSceneHandler
-bMainGame gen sceneHandler eTick eEvent = do
+bMainGame imgResMgr gen sceneHandler eTick eEvent = do
   -- ゲームを実行する間隔を制御するための Event
   let eGameStep = eTick
 
@@ -86,14 +106,27 @@ bMainGame gen sceneHandler eTick eEvent = do
 
     pure (bBoard)
 
-  pure $ fmap drawGameState (GameState <$> bBoard)
+  pure $ fmap (drawGameState imgResMgr) (GameState <$> bBoard)
+
+imageResources = [ "0"
+                 , "1"
+                 , "2"
+                 , "3"
+                 , "5"
+                 ]
+
+loadImageResources :: [String] -> IO ImageResourceManager
+loadImageResources fns = do
+  imgs <- mapM (loadBMP . (\fn -> "data/" ++ fn ++ ".bmp")) fns
+  return $ fromList $ zip fns imgs
 
 main :: IO ()
 main = do
   gen <- Random.createSystemRandom
   let window = InWindow "Snake Game" (windowWidth, windowHeight) (100, 100)
+  imgResMgr <- loadImageResources imageResources
   playReactive window bgColor 60 $ \eTick eEvent -> do
     (eScene, sceneHandler) <- newEvent
-    bScene <- execute $ fmap (\s -> getHandler s gen sceneHandler eTick eEvent) eScene
-    initial <- bMainGame gen sceneHandler eTick eEvent
+    bScene <- execute $ fmap (\s -> getHandler s imgResMgr gen sceneHandler eTick eEvent) eScene
+    initial <- bMainGame imgResMgr gen sceneHandler eTick eEvent
     switchB initial bScene
