@@ -2,6 +2,7 @@
 
 import Prelude hiding (lookup)
 import Control.Monad.Fix
+import Data.List (init)
 import Data.Map.Strict (Map(..), fromList, lookup)
 import Gloss.FRP.Reactive.Banana (playReactive, InputEvent)
 import Graphics.Gloss
@@ -18,6 +19,9 @@ type Position = (Int, Int)
 data Board = Board
   { _cells   :: [[Int]]
   }
+
+-- Board actions
+data BoardAction = MoveUp | MoveDown | MoveLeft | MoveRight deriving Show
 
 -- ゲームの状態は蛇とターゲットの組で表される
 data GameState = GameState
@@ -65,6 +69,20 @@ initialBoard :: Board
 initialBoard = replaceBoard (replaceBoard emptyBoard (0, 0) 1) (1, 2) 2
   where emptyBoard = Board (replicate 4 $ replicate 4 0)
 
+-- Convert event to (maybe) action
+event2Action :: InputEvent -> Maybe BoardAction
+event2Action (EventKey (SpecialKey KeyUp)    Down _ _) = Just MoveUp
+event2Action (EventKey (SpecialKey KeyDown)  Down _ _) = Just MoveDown
+event2Action (EventKey (SpecialKey KeyLeft)  Down _ _) = Just MoveLeft
+event2Action (EventKey (SpecialKey KeyRight) Down _ _) = Just MoveRight
+event2Action _                                         = Nothing
+
+updateBoard :: BoardAction -> Board -> Board
+updateBoard MoveUp board = Board $ tail (_cells board) ++ [[0,0,0,0]]
+updateBoard MoveDown board = Board $ [0,0,0,0] : init (_cells board)
+updateBoard MoveLeft board = Board $ map (\row -> tail row ++ [0]) (_cells board)
+updateBoard MoveRight board = Board $ map (\row -> 0 : init row) (_cells board)
+
 -- ゲーム上の一マスを描画する関数
 tile :: Color -> Position -> Picture
 tile c (x, y) =
@@ -100,9 +118,12 @@ bMainGame imgResMgr gen sceneHandler eTick eEvent = do
   -- ゲームを実行する間隔を制御するための Event
   let eGameStep = eTick
 
+  -- Keyboard event behavior
+  let eActionEvent = filterJust $ fmap event2Action eEvent
+
   -- 蛇とターゲットのBehavior
   (bBoard) <- mdo
-    bBoard <- accumB initialBoard (pure id <@ eGameStep)
+    bBoard <- accumB initialBoard (updateBoard <$> eActionEvent)
 
     pure (bBoard)
 
