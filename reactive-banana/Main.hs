@@ -153,7 +153,7 @@ loadImageResources fns = do
 main :: IO ()
 main = do
   gen <- Random.createSystemRandom
-  let window = InWindow "Snake Game" (windowWidth, windowHeight) (100, 100)
+  let window = InWindow "2048 Fibonacci" (windowWidth, windowHeight) (100, 100)
   imgResMgr <- loadImageResources imageResources
   playReactive window bgColor 60 $ \eTick eEvent -> do
     (eScene, sceneHandler) <- newEvent
