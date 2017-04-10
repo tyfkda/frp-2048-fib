@@ -16,8 +16,9 @@ import qualified System.Random.MWC as Random
 type Position = (Int, Int)
 
 -- Board
+type Cells = [[Int]]
 data Board = Board
-  { _cells   :: [[Int]]
+  { _cells   :: Cells
   }
 
 -- Board actions
@@ -77,7 +78,7 @@ event2Action (EventKey (SpecialKey KeyLeft)  Down _ _) = Just MoveLeft
 event2Action (EventKey (SpecialKey KeyRight) Down _ _) = Just MoveRight
 event2Action _                                         = Nothing
 
-updateBoardCells :: ([[Int]] -> [[Int]]) -> Board -> Board
+updateBoardCells :: (Cells -> Cells) -> Board -> Board
 updateBoardCells f board = Board $ f (_cells board)
 
 updateBoard :: BoardAction -> Board -> Board
@@ -86,7 +87,7 @@ updateBoard MoveRight = updateBoardCells updateBoardRight
 updateBoard MoveUp = updateBoardCells updateBoardUp
 updateBoard MoveDown = updateBoardCells updateBoardDown
 
-updateBoardLeft, updateBoardRight, updateBoardUp, updateBoardDown :: [[Int]] -> [[Int]]
+updateBoardLeft, updateBoardRight, updateBoardUp, updateBoardDown :: Cells -> Cells
 updateBoardLeft = map (\row -> take 4 $ filter (> 0) row ++ repeat 0)
 updateBoardRight = map (\row -> reverse $ take 4 $ (reverse $ filter (> 0) row) ++ repeat 0)
 updateBoardUp = transpose . updateBoardLeft . transpose
