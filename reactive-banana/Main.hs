@@ -4,6 +4,7 @@ import Prelude hiding (lookup)
 import Control.Monad.Fix
 import Data.List (init, transpose)
 import Data.Map.Strict (Map(..), fromList, lookup)
+import Data.Maybe (fromMaybe)
 import Gloss.FRP.Reactive.Banana (playReactive, InputEvent)
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game (Event(..), Key(..), SpecialKey(..), KeyState(..))
@@ -35,8 +36,8 @@ data GameScene = MainGame deriving Show
 -- Image resource manager
 type ImageResourceManager = Map String Picture
 
-getImg :: ImageResourceManager -> String -> Maybe Picture
-getImg = flip lookup
+getImg :: ImageResourceManager -> String -> Picture
+getImg imgResMgr name = fromMaybe blank $ lookup name imgResMgr
 
 -- シーンの実装の型
 type GameSceneHandler =  ImageResourceManager
@@ -116,16 +117,12 @@ tile c (x, y) =
 drawBoard :: ImageResourceManager -> Board -> Picture
 drawBoard imgResMgr board = pictures $ concat $ zipWith drawRow (_cells board) [0..]
   where drawRow row iy = zipWith drawCell row [0..]
-          where drawCell c ix = translate x' y' $ color tileColor $ ((getImg imgResMgr $ show c) `orJust` blank)
+          where drawCell c ix = translate x' y' $ color tileColor $ getImg imgResMgr $ show c
                   where (x', y') = (fromIntegral ix * blockSize - blockSize * 1.5, blockSize * 1.5 - fromIntegral iy * blockSize)
                         boxSize = 140
                         margin = 8
                         blockSize = 120  --boxSize + margin * 2
                         size = 4
-
-orJust :: Maybe a -> a -> a
-orJust (Just x) _ = x
-orJust Nothing  y = y
 
 -- ゲームの状態を描画する関数
 drawGameState :: ImageResourceManager -> GameState -> Picture
