@@ -19,6 +19,8 @@ data Board = Board
   { _cells   :: Cells
   }
 
+blankCell = 0
+
 -- Board actions
 data BoardAction = MoveUp | MoveDown | MoveLeft | MoveRight deriving Show
 
@@ -61,7 +63,7 @@ replaceBoard board pos x = Board $ replace2 (_cells board) pos x
 -- Initial board
 initialBoard :: Board
 initialBoard = replaceBoard (replaceBoard (replaceBoard emptyBoard (0, 0) 1) (1, 2) 2) (0, 3) 1
-  where emptyBoard = Board (replicate 4 $ replicate 4 0)
+  where emptyBoard = Board (replicate 4 $ replicate 4 blankCell)
 
 -- Convert event to (maybe) action
 event2Action :: InputEvent -> Maybe BoardAction
@@ -81,7 +83,7 @@ updateBoard MoveUp = updateBoardCells updateBoardUp
 updateBoard MoveDown = updateBoardCells updateBoardDown
 
 updateBoardLeft, updateBoardRight, updateBoardUp, updateBoardDown :: Cells -> Cells
-updateBoardLeft = map (\row -> take 4 $ mergePanels (filter (> 0) row) ++ repeat 0)
+updateBoardLeft = map (\row -> take 4 $ mergePanels (filter (/= blankCell) row) ++ repeat blankCell)
 updateBoardRight = map reverse . updateBoardLeft . map reverse
 updateBoardUp = transpose . updateBoardLeft . transpose
 updateBoardDown = transpose . updateBoardRight . transpose
