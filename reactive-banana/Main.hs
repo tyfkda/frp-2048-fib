@@ -41,6 +41,10 @@ blockSize = 100
 areaWidth = windowWidth `div` (round blockSize * 2) - 1
 areaHeight = windowHeight `div` (round blockSize * 2) - 1
 
+makeColor8 r g b a = makeColor (r / 255.0) (g / 255.0) (b / 255.0) (a / 255.0)
+bgColor = makeColor8 0xbb 0xad 0x9f 0xff
+tileColor = makeColor8 0xee 0xe4 0xd9 0xff
+
 -- Initial board
 initialBoard :: Board
 initialBoard = Board (replicate 4 $ replicate 4 0)
@@ -55,7 +59,7 @@ tile c (x, y) =
 drawBoard :: Board -> Picture
 drawBoard board = pictures $ concat $ zipWith drawRow (_cells board) [0..]
   where drawRow row iy = zipWith drawCell row [0..]
-          where drawCell c ix = translate x' y' $ color white $ rectangleSolid boxSize boxSize
+          where drawCell c ix = translate x' y' $ color tileColor $ rectangleSolid boxSize boxSize
                   where (x', y') = (fromIntegral ix * blockSize - blockSize * 1.5, fromIntegral iy * blockSize - blockSize * 1.5)
                         boxSize = 140
                         margin = 8
@@ -88,7 +92,7 @@ main :: IO ()
 main = do
   gen <- Random.createSystemRandom
   let window = InWindow "Snake Game" (windowWidth, windowHeight) (100, 100)
-  playReactive window black 60 $ \eTick eEvent -> do
+  playReactive window bgColor 60 $ \eTick eEvent -> do
     (eScene, sceneHandler) <- newEvent
     bScene <- execute $ fmap (\s -> getHandler s gen sceneHandler eTick eEvent) eScene
     initial <- bMainGame gen sceneHandler eTick eEvent
