@@ -61,9 +61,12 @@ replaceBoard :: Board -> (Int, Int) -> Int -> Board
 replaceBoard board pos x = Board $ replace2 (_cells board) pos x
 
 -- Initial board
-initialBoard :: Board
-initialBoard = replaceBoard (replaceBoard (replaceBoard emptyBoard (0, 0) 1) (1, 2) 2) (0, 3) 1
-  where emptyBoard = Board (replicate 4 $ replicate 4 blankCell)
+initialBoard :: Int -> Board
+initialBoard size = replaceBoard (replaceBoard (replaceBoard emptyBoard (0, 0) 1) (1, 2) 2) (0, 3) 1
+  where emptyBoard = Board (replicate size $ replicate size blankCell)
+
+boardSize :: Board -> Int
+boardSize = length . _cells
 
 -- Convert event to (maybe) action
 event2Action :: InputEvent -> Maybe BoardAction
@@ -83,7 +86,10 @@ updateBoard MoveUp = updateBoardCells updateBoardUp
 updateBoard MoveDown = updateBoardCells updateBoardDown
 
 updateBoardLeft, updateBoardRight, updateBoardUp, updateBoardDown :: Cells -> Cells
-updateBoardLeft = map (\row -> take 4 $ mergePanels (filter (/= blankCell) row) ++ repeat blankCell)
+updateBoardLeft = map slideLeft
+  where slideLeft row = merged ++ padding
+          where merged = mergePanels (filter (/= blankCell) row)
+                padding = replicate (length row - length merged) blankCell
 updateBoardRight = map reverse . updateBoardLeft . map reverse
 updateBoardUp = transpose . updateBoardLeft . transpose
 updateBoardDown = transpose . updateBoardRight . transpose
@@ -128,7 +134,7 @@ bMainGame imgResMgr gen sceneHandler eTick eEvent = do
 
   -- Behavior
   (bBoard) <- mdo
-    bBoard <- accumB initialBoard (updateBoard <$> eActionEvent)
+    bBoard <- accumB (initialBoard 4) (updateBoard <$> eActionEvent)
 
     pure (bBoard)
 
