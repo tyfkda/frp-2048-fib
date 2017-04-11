@@ -13,6 +13,18 @@ import qualified Reactive.Banana.Combinators as FRP
 import Reactive.Banana.Frameworks
 import qualified System.Random.MWC as Random
 
+-- Utility function for reactive-banana
+-- Pass first `n` Events, and drop after ones.
+takeE :: Int -> FRP.Event a -> MomentIO (FRP.Event a)
+takeE n event = do
+  bCount <- accumB 0 ((+1) <$ event)
+  pure $ fmap snd $ filterE (\(c,_) -> c < n) ((,) <$> bCount <@> event)
+
+-- Normal key pressed?
+isKeyPressed :: Char -> InputEvent -> Bool
+isKeyPressed k (EventKey (Char c)       _ _ _) = k == c
+isKeyPressed _ _                               = False
+
 -- Board
 type Cells = [[Int]]
 data Board = Board
@@ -31,7 +43,7 @@ data GameState = GameState
   }
 
 -- Represent scene
-data GameScene = MainGame deriving Show
+data GameScene = MainGame | GameOverScene deriving Show
 
 -- Image resource manager
 type ImageResourceManager = Map String Picture
@@ -137,6 +149,11 @@ merge x y | x > y             = merge y x
 fib = (fibonacci !!)
   where fibonacci = 1:1:zipWith (+) fibonacci (tail fibonacci)
 
+canMove :: Board -> Bool
+canMove board = any canSlide [MoveLeft, MoveRight, MoveUp, MoveDown]
+  where cells = _cells board
+        canSlide act = (fst $ slideTo act cells) /= cells
+
 -- Draw board
 drawBoard :: ImageResourceManager -> Board -> Picture
 drawBoard imgResMgr board = pictures $ concat $ zipWith drawRow (_cells board) [0..]
@@ -156,13 +173,13 @@ drawGameState imgResMgr gs = pictures [drawBoard imgResMgr (_board gs), drawScor
 -- Return handler for scene
 getHandler :: GameScene -> GameSceneHandler
 getHandler MainGame   = bMainGame
+getHandler GameOverScene = bGameOver
 
 
 genRandom :: MonadIO io => (Int, Int) -> Random.GenIO -> io Int
 genRandom range gen = do
   r <- liftIO $ Random.uniformR range gen
   pure r
-
 
 -- Game screen
 bMainGame :: GameSceneHandler
@@ -185,7 +202,21 @@ bMainGame imgResMgr gen sceneHandler eTick eEvent = do
 
     pure (bBoard, bScore)
 
+  eGameOver <- takeE 1 $ filterE id $ fmap (not . canMove) bBoard <@ eActionEvent
+  reactimate $ (liftIO $ sceneHandler GameOverScene) <$ eGameOver
+
   pure $ fmap (drawGameState imgResMgr) (GameState <$> bBoard <*> bScore)
+
+-- Game over screen
+bGameOver :: GameSceneHandler
+bGameOver imgResMgr gen sceneHandler eTick eEvent = do
+  let title       = translate (-200) 0     $ scale 0.5  0.5  $ color red   $ text "Game over"
+      description = translate (-200) (-50) $ scale 0.25 0.25 $ color white $ text "Press 'r' key to restart."
+
+  eAnyKeyPressed <- takeE 1 $ pure (isKeyPressed 'r') `filterApply` eEvent
+  reactimate $ (liftIO $ sceneHandler MainGame) <$ eAnyKeyPressed
+
+  pure $ (pure (pictures [title, description]))
 
 imageResources = map show [0..19]
 
