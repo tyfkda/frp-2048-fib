@@ -57,12 +57,12 @@ replace ls i x = take i ls ++ [x] ++ drop (i + 1) ls
 replace2 lss (i, j) x = replace lss i $ replace (lss !! i) j x
 
 -- Replace one cell on a board
-replaceBoard :: Board -> (Int, Int) -> Int -> Board
-replaceBoard board pos x = Board $ replace2 (_cells board) pos x
+replaceBoard :: (Int, Int) -> Int -> Board -> Board
+replaceBoard pos x board = Board $ replace2 (_cells board) pos x
 
 -- Initial board
 initialBoard :: Int -> Board
-initialBoard size = replaceBoard (replaceBoard (replaceBoard emptyBoard (0, 0) 1) (1, 2) 2) (0, 3) 1
+initialBoard size = replaceBoard (0, 3) 1 $ replaceBoard (1, 2) 2 $ replaceBoard (0, 0) 1 emptyBoard
   where emptyBoard = Board (replicate size $ replicate size blankCell)
 
 boardSize :: Board -> Int
@@ -79,11 +79,11 @@ event2Action _                                         = Nothing
 updateBoardCells :: (Cells -> Cells) -> Board -> Board
 updateBoardCells f board = Board $ f (_cells board)
 
-updateBoard :: BoardAction -> Board -> Board
-updateBoard MoveLeft = updateBoardCells updateBoardLeft
-updateBoard MoveRight = updateBoardCells updateBoardRight
-updateBoard MoveUp = updateBoardCells updateBoardUp
-updateBoard MoveDown = updateBoardCells updateBoardDown
+updateBoard :: Int -> BoardAction -> Board -> Board
+updateBoard r MoveLeft = replaceBoard (0, 0) r . updateBoardCells updateBoardLeft
+updateBoard r MoveRight = replaceBoard (0, 0) r . updateBoardCells updateBoardRight
+updateBoard r MoveUp = replaceBoard (0, 0) r . updateBoardCells updateBoardUp
+updateBoard r MoveDown = replaceBoard (0, 0) r . updateBoardCells updateBoardDown
 
 updateBoardLeft, updateBoardRight, updateBoardUp, updateBoardDown :: Cells -> Cells
 updateBoardLeft = map slideLeft
@@ -123,6 +123,14 @@ drawGameState imgResMgr gs = pictures [drawBoard imgResMgr (_board gs)]
 getHandler :: GameScene -> GameSceneHandler
 getHandler MainGame   = bMainGame
 
+
+genRandomPosition :: MonadIO io => Random.GenIO -> io Int
+genRandomPosition gen = do
+  --r <- liftIO $ Random.uniformR (0, product [1..10]) gen
+  r <- liftIO $ Random.uniformR (1, 1) gen
+  pure r
+
+
 -- Game screen
 bMainGame :: GameSceneHandler
 bMainGame imgResMgr gen sceneHandler eTick eEvent = do
@@ -134,18 +142,16 @@ bMainGame imgResMgr gen sceneHandler eTick eEvent = do
 
   -- Behavior
   (bBoard) <- mdo
-    bBoard <- accumB (initialBoard 4) (updateBoard <$> eActionEvent)
+    let eMove = eActionEvent
+    eRnd <- execute $ genRandomPosition gen <$ eGameStep
+    bRnd <- stepper 0 eRnd
+    bBoard <- accumB (initialBoard 4) (updateBoard <$> bRnd <@> eMove)
 
     pure (bBoard)
 
   pure $ fmap (drawGameState imgResMgr) (GameState <$> bBoard)
 
-imageResources = [ "0"
-                 , "1"
-                 , "2"
-                 , "3"
-                 , "4"
-                 ]
+imageResources = map show [0..19]
 
 loadImageResources :: [String] -> IO ImageResourceManager
 loadImageResources fns = do
