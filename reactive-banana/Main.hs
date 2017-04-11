@@ -81,32 +81,52 @@ updateBoardCells :: (Cells -> Cells) -> Board -> Board
 updateBoardCells f board = Board $ f (_cells board)
 
 updateBoard :: Int -> BoardAction -> Board -> Board
-updateBoard r MoveLeft = replaceBoard (0, 0) r . updateBoardCells updateBoardLeft
-updateBoard r MoveRight = replaceBoard (0, 0) r . updateBoardCells updateBoardRight
-updateBoard r MoveUp = replaceBoard (0, 0) r . updateBoardCells updateBoardUp
-updateBoard r MoveDown = replaceBoard (0, 0) r . updateBoardCells updateBoardDown
+updateBoard r act board
+  | cells == slided  = board  -- Cannot move to the direction
+  | otherwise        = replaceBoard (0, 0) r $ Board slided
+  where cells = _cells board
+        (slided, point) = slideTo act cells
 
-updateBoardLeft, updateBoardRight, updateBoardUp, updateBoardDown :: Cells -> Cells
-updateBoardLeft = map slideLeft
-  where slideLeft row = merged ++ padding
-          where merged = mergePanels (filter (/= blankCell) row)
+slideTo :: BoardAction -> Cells -> (Cells, Int)
+slideTo MoveLeft = slideWithTransform id id
+slideTo MoveRight = slideWithTransform flipCells flipCells
+slideTo MoveUp = slideWithTransform rotateCCW rotateCW
+slideTo MoveDown = slideWithTransform rotateCW rotateCCW
+
+slideWithTransform :: (Cells -> Cells) -> (Cells -> Cells) -> Cells -> (Cells, Int)
+slideWithTransform transform transformBack cells = (transformBack slided, point)
+  where (slided, point) = slideLeft $ transform cells
+
+flipCells = map reverse
+rotateCW = map reverse . transpose
+rotateCCW = transpose . map reverse
+
+slideLeft :: Cells -> (Cells, Int)
+slideLeft cells = (map fst slides, sum $ map snd slides)
+  where slides = map slide cells
+        slide row = (merged ++ padding, point)
+          where (merged, point) = mergePanels (filter (/= blankCell) row)
                 padding = replicate (length row - length merged) blankCell
-updateBoardRight = map reverse . updateBoardLeft . map reverse
-updateBoardUp = transpose . updateBoardLeft . transpose
-updateBoardDown = transpose . updateBoardRight . transpose
 
-mergePanels :: [Int] -> [Int]
-mergePanels [] = []
-mergePanels [x] = [x]
-mergePanels (x:y:zs) = case merge x y of
-                         Just m   -> m : mergePanels zs
-                         Nothing  -> x : mergePanels (y: zs)
+mergePanels :: [Int] -> ([Int], Int)
+mergePanels ns = (map fst ps, sum $ map snd ps)
+  where ps = mergePanelsWithPoint ns
+
+mergePanelsWithPoint :: [Int] -> [(Int, Int)]
+mergePanelsWithPoint [] = []
+mergePanelsWithPoint [x] = [(x, 0)]
+mergePanelsWithPoint (x:y:zs) = case merge x y of
+                         Just m   -> (m, fib m) : mergePanelsWithPoint zs
+                         Nothing  -> (x, 0) : mergePanelsWithPoint (y: zs)
 
 merge :: Int -> Int -> Maybe Int
 merge x y | x > y             = merge y x
           | x == 1 && y == 1  = Just 2
           | x + 1 == y        = Just $ y + 1
           | otherwise         = Nothing
+
+fib = (fibonacci !!)
+  where fibonacci = 1:1:zipWith (+) fibonacci (tail fibonacci)
 
 -- Draw board
 drawBoard :: ImageResourceManager -> Board -> Picture
