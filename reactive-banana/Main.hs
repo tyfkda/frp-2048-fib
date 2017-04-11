@@ -27,6 +27,7 @@ data BoardAction = MoveUp | MoveDown | MoveLeft | MoveRight deriving Show
 -- Game state
 data GameState = GameState
   { _board  :: Board
+  , _score :: Int
   }
 
 -- Represent scene
@@ -115,9 +116,13 @@ drawBoard imgResMgr board = pictures $ concat $ zipWith drawRow (_cells board) [
                   where (x', y') = (fromIntegral ix * blockSize - blockSize * 1.5, blockSize * 1.5 - fromIntegral iy * blockSize)
                         blockSize = 120
 
+-- Draw score
+drawScore :: Int -> Picture
+drawScore score = translate (negate 200) 300 $ scale 0.25 0.25 $ color black $ text $ "Score: " ++ show score
+
 -- Draw function for game state
 drawGameState :: ImageResourceManager -> GameState -> Picture
-drawGameState imgResMgr gs = pictures [drawBoard imgResMgr (_board gs)]
+drawGameState imgResMgr gs = pictures [drawBoard imgResMgr (_board gs), drawScore (_score gs)]
 
 -- Return handler for scene
 getHandler :: GameScene -> GameSceneHandler
@@ -141,15 +146,16 @@ bMainGame imgResMgr gen sceneHandler eTick eEvent = do
   let eActionEvent = filterJust $ fmap event2Action eEvent
 
   -- Behavior
-  (bBoard) <- mdo
+  (bBoard, bScore) <- mdo
     let eMove = eActionEvent
     eRnd <- execute $ genRandomPosition gen <$ eGameStep
     bRnd <- stepper 0 eRnd
     bBoard <- accumB (initialBoard 4) (updateBoard <$> bRnd <@> eMove)
+    bScore <- accumB 0 ((+ 1) <$ eMove)
 
-    pure (bBoard)
+    pure (bBoard, bScore)
 
-  pure $ fmap (drawGameState imgResMgr) (GameState <$> bBoard)
+  pure $ fmap (drawGameState imgResMgr) (GameState <$> bBoard <*> bScore)
 
 imageResources = map show [0..19]
 
