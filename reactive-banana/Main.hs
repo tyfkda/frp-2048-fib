@@ -164,7 +164,7 @@ drawBoard imgResMgr board = pictures $ concat $ zipWith drawRow (_cells board) [
 
 -- Draw score
 drawScore :: Int -> Picture
-drawScore score = translate (negate 200) 300 $ scale 0.25 0.25 $ color black $ text $ "Score: " ++ show score
+drawScore score = translate (-200) 300 $ scale 0.25 0.25 $ color black $ text $ "Score: " ++ show score
 
 -- Draw function for game state
 drawGameState :: ImageResourceManager -> GameState -> Picture
