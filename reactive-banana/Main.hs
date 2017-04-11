@@ -80,10 +80,10 @@ event2Action _                                         = Nothing
 updateBoardCells :: (Cells -> Cells) -> Board -> Board
 updateBoardCells f board = Board $ f (_cells board)
 
-updateBoard :: Int -> BoardAction -> Board -> Board
-updateBoard r act board
-  | cells == slided  = board  -- Cannot move to the direction
-  | otherwise        = replaceBoard (0, 0) r $ Board slided
+updateBoard :: Int -> BoardAction -> (Board, Int) -> (Board, Int)
+updateBoard r act (board, _)
+  | cells == slided  = (board, 0)  -- Cannot move to the direction
+  | otherwise        = (replaceBoard (0, 0) r $ Board slided, point)
   where cells = _cells board
         (slided, point) = slideTo act cells
 
@@ -170,8 +170,10 @@ bMainGame imgResMgr gen sceneHandler eTick eEvent = do
     let eMove = eActionEvent
     eRnd <- execute $ genRandomPosition gen <$ eGameStep
     bRnd <- stepper 0 eRnd
-    bBoard <- accumB (initialBoard 4) (updateBoard <$> bRnd <@> eMove)
-    bScore <- accumB 0 ((+ 1) <$ eMove)
+    bBoardWithPoint <- accumB (initialBoard 4, 0) (updateBoard <$> bRnd <@> eMove)
+    let bBoard = fmap fst bBoardWithPoint
+    let bPoint = fmap snd bBoardWithPoint
+    bScore <- accumB 0 ((+) <$> bPoint <@ eMove)
 
     pure (bBoard, bScore)
 
