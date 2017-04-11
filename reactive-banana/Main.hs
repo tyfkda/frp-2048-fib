@@ -83,9 +83,18 @@ updateBoardCells f board = Board $ f (_cells board)
 updateBoard :: Int -> BoardAction -> (Board, Int) -> (Board, Int)
 updateBoard r act (board, _)
   | cells == slided  = (board, 0)  -- Cannot move to the direction
-  | otherwise        = (replaceBoard (0, 0) r $ Board slided, point)
+  | otherwise        = (spawnPanel r act $ Board slided, point)
   where cells = _cells board
         (slided, point) = slideTo act cells
+
+spawnPanel :: Int -> BoardAction -> Board -> Board
+spawnPanel rnd act board = replaceBoard targetPos panel board
+  where blankCells = filter ((== blankCell) . fst) cellsWithPos
+        targetIndex = rnd `mod` length blankCells
+        targetPos = snd (blankCells !! targetIndex)
+        panel = [1, 1, 1, 2] !! ((rnd `div` length blankCells) `mod` 4)
+        cellsWithPos = concat $ zipWith (\row r -> zipWith (\cell c -> (cell, (r, c))) row [0..]) cells [0..]
+        cells = _cells board
 
 slideTo :: BoardAction -> Cells -> (Cells, Int)
 slideTo MoveLeft = slideWithTransform id id
@@ -149,10 +158,9 @@ getHandler :: GameScene -> GameSceneHandler
 getHandler MainGame   = bMainGame
 
 
-genRandomPosition :: MonadIO io => Random.GenIO -> io Int
-genRandomPosition gen = do
-  --r <- liftIO $ Random.uniformR (0, product [1..10]) gen
-  r <- liftIO $ Random.uniformR (1, 1) gen
+genRandom :: MonadIO io => (Int, Int) -> Random.GenIO -> io Int
+genRandom range gen = do
+  r <- liftIO $ Random.uniformR range gen
   pure r
 
 
@@ -168,7 +176,7 @@ bMainGame imgResMgr gen sceneHandler eTick eEvent = do
   -- Behavior
   (bBoard, bScore) <- mdo
     let eMove = eActionEvent
-    eRnd <- execute $ genRandomPosition gen <$ eGameStep
+    eRnd <- execute $ genRandom (0, product [1..4] * product [1..4] * product [1..6]) gen <$ eGameStep
     bRnd <- stepper 0 eRnd
     bBoardWithPoint <- accumB (initialBoard 4, 0) (updateBoard <$> bRnd <@> eMove)
     let bBoard = fmap fst bBoardWithPoint
