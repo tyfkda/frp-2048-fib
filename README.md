@@ -1,16 +1,16 @@
-FRP Snake Game
-==============
+FRP 2048 Fibonacci
+==================
 
-Playground of implementing snake game using FRP libraries.
+Playground of implementing 2048 Fibonacci game using FRP libraries.
 
-![](demo.png)
+![demo](demo.png)
 
 Install
 -------
 
 ```bash
-$ git clone git@github.com:lotz84/frp-snake-game.git
-$ cd frp-snake-game
+$ git clone git@github.com:tyfkda/frp-2048-fib.git
+$ cd frp-2048-fib
 $ stack build
 $ stack exec reactive-banana-exe
 ```
