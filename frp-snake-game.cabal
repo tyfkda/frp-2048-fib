@@ -15,6 +15,7 @@ executable reactive-banana-exe
   hs-source-dirs:      reactive-banana
   main-is:             Main.hs
   other-modules:       Board
+                     , ImageResourceManager
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , transformers

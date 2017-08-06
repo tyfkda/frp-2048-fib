@@ -1,9 +1,6 @@
 {-# LANGUAGE RecursiveDo #-}
 
-import Prelude hiding (lookup)
 import Control.Monad.Fix
-import Data.Map.Strict (Map(..), fromList, lookup)
-import Data.Maybe (fromMaybe)
 import Gloss.FRP.Reactive.Banana (playReactive, InputEvent)
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game (Event(..), Key(..), SpecialKey(..), KeyState(..))
@@ -13,7 +10,9 @@ import Reactive.Banana.Frameworks
 import qualified System.Random.MWC as Random
 
 import Board ( Board(..), BoardAction(..)
-             , canMove, initialBoard, updateBoard)
+             , canMove, initialBoard, updateBoard )
+import ImageResourceManager ( ImageResourceManager
+                            , getImg, loadImageResources )
 
 -- Utility function for reactive-banana
 -- Pass first `n` Events, and drop after ones.
@@ -35,12 +34,6 @@ data GameState = GameState
 
 -- Represent scene
 data GameScene = MainGame | GameOverScene deriving Show
-
--- Image resource manager
-type ImageResourceManager = Map String Picture
-
-getImg :: ImageResourceManager -> String -> Picture
-getImg imgResMgr name = fromMaybe blank $ lookup name imgResMgr
 
 -- Type to implement scene
 type GameSceneHandler =  ImageResourceManager
@@ -129,18 +122,13 @@ bGameOver imgResMgr gen sceneHandler eTick eEvent = do
 
   pure $ (pure (pictures [title, description]))
 
-imageResources = map show [0..19]
-
-loadImageResources :: [String] -> IO ImageResourceManager
-loadImageResources fns = do
-  imgs <- mapM (loadBMP . (\fn -> "data/" ++ fn ++ ".bmp")) fns
-  return $ fromList $ zip fns imgs
+imageResourceNames = map show [0..19]
 
 main :: IO ()
 main = do
   gen <- Random.createSystemRandom
   let window = InWindow "2048 Fibonacci" (windowWidth, windowHeight) (100, 100)
-  imgResMgr <- loadImageResources imageResources
+  imgResMgr <- loadImageResources imageResourceNames
   playReactive window bgColor 60 $ \eTick eEvent -> do
     (eScene, sceneHandler) <- newEvent
     bScene <- execute $ fmap (\s -> getHandler s imgResMgr gen sceneHandler eTick eEvent) eScene
