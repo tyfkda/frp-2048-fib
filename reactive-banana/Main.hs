@@ -29,7 +29,6 @@ isKeyPressed _ _                               = False
 -- Game state
 data GameState = GameState
   { _board  :: Board
-  , _score :: Int
   }
 
 -- Represent scene
@@ -72,7 +71,7 @@ drawScore score = translate (-200) 300 $ scale 0.25 0.25 $ color black $ text $ 
 
 -- Draw function for game state
 drawGameState :: ImageResourceManager -> GameState -> Picture
-drawGameState imgResMgr gs = pictures [drawBoard imgResMgr (_board gs), drawScore (_score gs)]
+drawGameState imgResMgr gs = pictures [drawBoard imgResMgr (_board gs), drawScore (_score (_board gs))]
 
 -- Return handler for scene
 getHandler :: GameScene -> GameSceneHandler
@@ -95,21 +94,18 @@ bMainGame imgResMgr gen sceneHandler eTick eEvent = do
   let eActionEvent = filterJust $ fmap event2BoardAction eEvent
 
   -- Behavior
-  (bBoard, bScore) <- mdo
+  bBoard <- mdo
     let eMove = eActionEvent
     eRnd <- execute $ genRandom (0, product [1..4] * product [1..4] * product [1..6]) gen <$ eGameStep
     bRnd <- stepper 0 eRnd
-    bBoardWithPoint <- accumB (initialBoard 4, 0) (updateBoard <$> bRnd <@> eMove)
-    let bBoard = fmap fst bBoardWithPoint
-    let bPoint = fmap snd bBoardWithPoint
-    bScore <- accumB 0 ((+) <$> bPoint <@ eMove)
+    bBoard <- accumB (initialBoard 4) (updateBoard <$> bRnd <@> eMove)
 
-    pure (bBoard, bScore)
+    pure bBoard
 
   eGameOver <- takeE 1 $ filterE id $ fmap (not . canMove) bBoard <@ eActionEvent
   reactimate $ (liftIO $ sceneHandler GameOverScene) <$ eGameOver
 
-  pure $ fmap (drawGameState imgResMgr) (GameState <$> bBoard <*> bScore)
+  pure $ fmap (drawGameState imgResMgr) (GameState <$> bBoard)
 
 -- Game over screen
 bGameOver :: GameSceneHandler

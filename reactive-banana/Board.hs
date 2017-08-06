@@ -9,6 +9,7 @@ import Data.List (transpose)
 type Cells = [[Int]]
 data Board = Board
   { _cells   :: Cells
+  , _score   :: Int
   }
 
 blankCell = 0
@@ -16,14 +17,11 @@ blankCell = 0
 -- Board actions
 data BoardAction = MoveUp | MoveDown | MoveLeft | MoveRight deriving Show
 
--- Replace one cell on a board
-replaceBoard :: (Int, Int) -> Int -> Board -> Board
-replaceBoard pos x board = Board $ replace2 (_cells board) pos x
-
 -- Initial board
 initialBoard :: Int -> Board
-initialBoard size = replaceBoard (0, 3) 1 $ replaceBoard (1, 2) 2 $ replaceBoard (0, 0) 1 emptyBoard
-  where emptyBoard = Board (replicate size $ replicate size blankCell)
+initialBoard size = Board cells 0
+  where cells = (replace2 (0, 3) 1 $ replace2 (1, 2) 2 $ replace2 (0, 0) 1 emptyCells)
+        emptyCells = replicate size $ replicate size blankCell
 
 boardSize :: Board -> Int
 boardSize = length . _cells
@@ -33,21 +31,21 @@ canMove board = any canSlide [MoveLeft, MoveRight, MoveUp, MoveDown]
   where cells = _cells board
         canSlide act = (fst $ slideTo act cells) /= cells
 
-updateBoard :: Int -> BoardAction -> (Board, Int) -> (Board, Int)
-updateBoard r act (board, _)
-  | cells == slided  = (board, 0)  -- Cannot move to the direction
-  | otherwise        = (spawnPanel r act $ Board slided, point)
-  where cells = _cells board
+updateBoard :: Int -> BoardAction -> Board -> Board
+updateBoard r act board
+  | canSlide   = Board (spawnPanel r act slided) (_score board + point)
+  | otherwise  = board
+  where canSlide = cells /= slided
+        cells = _cells board
         (slided, point) = slideTo act cells
 
-spawnPanel :: Int -> BoardAction -> Board -> Board
-spawnPanel rnd act board = replaceBoard targetPos panel board
+spawnPanel :: Int -> BoardAction -> Cells -> Cells
+spawnPanel rnd act cells = replace2 targetPos panel cells
   where blankCells = filter ((== blankCell) . fst) cellsWithPos
         targetIndex = rnd `mod` length blankCells
         targetPos = snd (blankCells !! targetIndex)
         panel = [1, 1, 1, 2] !! ((rnd `div` length blankCells) `mod` 4)
         cellsWithPos = concat $ zipWith (\row r -> zipWith (\cell c -> (cell, (r, c))) row [0..]) cells [0..]
-        cells = _cells board
 
 slideTo :: BoardAction -> Cells -> (Cells, Int)
 slideTo MoveLeft = slideWithTransform id id
@@ -90,5 +88,5 @@ merge x y | x > y             = merge y x
 fib = (fibonacci !!)
   where fibonacci = 1:1:zipWith (+) fibonacci (tail fibonacci)
 
-replace ls i x = take i ls ++ [x] ++ drop (i + 1) ls
-replace2 lss (i, j) x = replace lss i $ replace (lss !! i) j x
+replace i x ls = take i ls ++ [x] ++ drop (i + 1) ls
+replace2 (i, j) x lss = replace i (replace j x (lss !! i)) lss
